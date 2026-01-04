@@ -146,9 +146,14 @@
                             <div class="live-indicator">
                                 <span class="dot"></span> REC
                             </div>
-                            <div class="camera-placeholder">
+                            <!-- MJPEG Stream -->
+                            <img src="{{ camera_stream_url }}" class="camera-stream" alt="Cámara en Vivo"
+                                onerror="this.style.display='none'; document.querySelector('.camera-placeholder').style.display='flex'">
+
+                            <!-- Placeholder (Fallback) -->
+                            <div class="camera-placeholder" style="display:none;">
                                 <i class="fa-solid fa-eye-slash"></i>
-                                <span>Esperando señal...</span>
+                                <span>Sin señal de video</span>
                             </div>
                         </div>
                     </div>

@@ -45,8 +45,8 @@ class ClienteMqtt:
         # Callback para enviar datos a FastAPI
         self.callbackMensaje: Optional[Callable[[str, dict], None]] = None
         
-        # Modo Simulación
-        self.modoSimulacion = True 
+        # Modo Simulación (Desactivado si hay dispositivo real)
+        self.modoSimulacion = False 
         self.estadoActual = "CERRADO"
         self.historialLogs = [] # Lista para persistencia en memoria
         self.loop = None
@@ -96,7 +96,15 @@ class ClienteMqtt:
             tipoMensaje = "desconocido"
             if topico == TOPICO_ESTADO:
                 tipoMensaje = "estado"
-                self.estadoActual = payload # Sincronizar estado
+                # Normalización: Manejar ABIERTA/ABIERTO
+                estado_normalizado = payload.upper()
+                if "ABIER" in estado_normalizado:
+                     self.estadoActual = "ABIERTO"
+                else:
+                     self.estadoActual = "CERRADO"
+                
+                # Usar el estado normalizado para el payload que va al WebSocket
+                payload = self.estadoActual 
             elif topico == TOPICO_ALERTA:
                 tipoMensaje = "alerta"
                 self._agregarHistorial("alerta", payload)
@@ -120,11 +128,11 @@ class ClienteMqtt:
         comando = comando.upper()
         if comando == "ABRIR":
             self.estadoActual = "ABIERTO"
-            self.publicar(TOPICO_ESTADO, "ABIERTO")
+            self.publicar(TOPICO_ESTADO, "ABIERTO", retain=True)
             self.publicar(TOPICO_LOG, "Apertura remota ejecutada")
         elif comando == "CERRAR":
             self.estadoActual = "CERRADO"
-            self.publicar(TOPICO_ESTADO, "CERRADO")
+            self.publicar(TOPICO_ESTADO, "CERRADO", retain=True)
             self.publicar(TOPICO_LOG, "Cierre remoto ejecutado")
         else:
             self.publicar(TOPICO_ALERTA, f"Intento de comando no autorizado: {comando}")
@@ -142,7 +150,7 @@ class ClienteMqtt:
         self.cliente.loop_stop()
         self.cliente.disconnect()
 
-    def publicar(self, topico, mensaje):
-        self.cliente.publish(topico, mensaje)
+    def publicar(self, topico, mensaje, retain=False):
+        self.cliente.publish(topico, mensaje, retain=retain)
 
 manejadorMqtt = ClienteMqtt()

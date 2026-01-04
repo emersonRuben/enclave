@@ -4,7 +4,15 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 import asyncio
 import logging
+import os
+from dotenv import load_dotenv
 from mqtt_client import manejadorMqtt, TOPICO_COMANDO
+
+# Cargar variables de entorno
+load_dotenv()
+
+# Configuración
+CAMERA_STREAM_URL = os.getenv("CAMERA_STREAM_URL", "http://10.93.36.6:81/stream")
 
 # Configurar Logging
 logging.basicConfig(level=logging.INFO)
@@ -53,7 +61,10 @@ async def eventoCierre():
 
 @app.get("/", response_class=HTMLResponse)
 async def obtenerInicio(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "camera_stream_url": CAMERA_STREAM_URL
+    })
 
 @app.post("/api/comando/{accion}")
 async def enviarComando(accion: str):
@@ -74,14 +85,6 @@ async def endpointWebsocket(websocket: WebSocket):
         })
 
         # 2. Enviar historial de logs
-        # Invertimos la lista para enviar del más antiguo al más nuevo si la UI lo agrega al principio
-        # O enviamos tal cual viene (reciente primero). 
-        # app.js usa insertBefore(firstChild), así que el UL tiene el más nuevo arriba.
-        # Si enviamos en orden (nuevo -> viejo) y app.js agrega arriba, el último enviado (más viejo) quedará arriba. NO.
-        # app.js: insertBefore(li, firstChild) -> Lo ultimo que mando queda arriba.
-        # historialLogs: [Nuevo, Viejo, MasViejo]
-        # Si mando Nuevo -> queda arriba. Luego Viejo -> queda arriba de Nuevo. 
-        # Entonces tengo que mandar del MÁS VIEJO al MÁS NUEVO para que el NUEVO quede arriba al final.
         for log in reversed(manejadorMqtt.historialLogs):
             await websocket.send_json(log)
 
