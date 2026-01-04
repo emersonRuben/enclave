@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: enclave-iot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: HIVEMQ_BROKER
+        sync: false
+      - key: HIVEMQ_PORT
+        sync: false
+      - key: HIVEMQ_USERNAME
+        sync: false
+      - key: HIVEMQ_PASSWORD
+        sync: false

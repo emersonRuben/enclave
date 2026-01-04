@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+paho-mqtt
+websockets
+jinja2
+python-multipart
+certifi
+python-dotenv
