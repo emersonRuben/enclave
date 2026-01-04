@@ -3,6 +3,7 @@ import logging
 import asyncio
 import ssl
 import certifi
+import json
 from typing import Callable, Optional
 
 import os
@@ -28,12 +29,10 @@ class ClienteMqtt:
     def __init__(self):
         # En paho-mqtt 2.0+ callback_api_version por defecto es CallbackAPIVersion.VERSION2
         # Usamos protocolo MQTTv5 o v311. Para simpleza usamos v5 o default.
-        self.cliente = mqtt.Client(protocol=mqtt.MQTTv5)
+        self.cliente = mqtt.Client(client_id="FastAPI_Server", protocol=mqtt.MQTTv5)
         
-        # Configuración TLS para HiveMQ Cloud
-        # ssl.PROTOCOL_TLS_CLIENT es lo recomendado para clientes modernos
-        contexto_ssl = ssl.create_default_context(cafile=certifi.where())
-        self.cliente.tls_set_context(contexto_ssl)
+        # Configurar TLS con certificados de Certifi
+        self.cliente.tls_set(ca_certs=certifi.where())
         
         # Configuración de Autenticación
         self.cliente.username_pw_set(USUARIO, CONTRASEÑA)
@@ -43,39 +42,55 @@ class ClienteMqtt:
         self.cliente.on_disconnect = self.alDesconectar
         
         # Callback para enviar datos a FastAPI
-        self.callbackMensaje: Optional[Callable[[str, dict], None]] = None
+        self.callbackWebsocket: Optional[Callable[[str, dict], None]] = None
         
         # Modo Simulación (Desactivado si hay dispositivo real)
         self.modoSimulacion = False 
         self.estadoActual = "CERRADO"
-        self.historialLogs = [] # Lista para persistencia en memoria
+        
+        # Persistencia de Logs
+        self.archivoLogs = "logs.json"
+        self.historialLogs = self._cargarLogs()
         self.loop = None
 
-    def establecerCallback(self, callback):
-        self.callbackMensaje = callback
+    def _cargarLogs(self):
+        try:
+            if os.path.exists(self.archivoLogs):
+                with open(self.archivoLogs, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Error cargando logs: {e}")
+        return []
+
+    def _guardarLogs(self):
+        try:
+            with open(self.archivoLogs, 'w') as f:
+                json.dump(self.historialLogs, f)
+        except Exception as e:
+            print(f"Error guardando logs: {e}")
+
+    def establecerCallback(self, funcionCallback):
+        self.callbackWebsocket = funcionCallback
 
     def _agregarHistorial(self, tipo, mensaje):
-        """Guarda los últimos 50 eventos en memoria."""
+        """Guarda los últimos 50 eventos en memoria y archivo."""
         evento = {"tipo": tipo, "datos": mensaje}
-        self.historialLogs.insert(0, evento) # Insertar al inicio (más reciente)
+        self.historialLogs.insert(0, evento)
+        # Limitar a 50
         if len(self.historialLogs) > 50:
             self.historialLogs.pop()
+        
+        # Guardar en disco
+        self._guardarLogs()
 
     def alConectar(self, cliente, userdata, flags, rc, properties=None):
-        # Nota: en MQTTv5 on_connect recibe 'properties' también
         if rc == 0:
-            logging.info(f"Conectado exitosamente al Cluster HiveMQ Cloud (RC: {rc})")
-            # Suscribirse a tópicos
-            cliente.subscribe(TOPICO_ESTADO)
-            cliente.subscribe(TOPICO_ALERTA)
-            cliente.subscribe(TOPICO_LOG)
-            
-            # Si está en modo simulación, escuchar comandos
-            if self.modoSimulacion:
-                cliente.subscribe(TOPICO_COMANDO)
-                logging.info(f"Suscrito a {TOPICO_COMANDO} para simulación")
+            logging.info("Conectado exitosamente al Cluster HiveMQ Cloud (RC: Success)")
+            # Suscribirse a Tópicos
+            cliente.subscribe(f"{PREFIJO_TOPICO}/#")
+            logging.info(f"Suscrito a {PREFIJO_TOPICO}/# para simulación")
         else:
-            logging.error(f"Fallo en conexión MQTT. Código de retorno: {rc}")
+            logging.error(f"Fallo en conexión RC: {rc}")
 
     def alDesconectar(self, cliente, userdata, rc, properties=None):
         logging.warning(f"Desconectado del Broker MQTT (RC: {rc})")
@@ -113,10 +128,10 @@ class ClienteMqtt:
                 self._agregarHistorial("log", payload)
             
             # Pasar datos al callback (WebSockets)
-            if self.callbackMensaje and tipoMensaje != "desconocido":
+            if self.callbackWebsocket and tipoMensaje != "desconocido":
                 if self.loop:
                     asyncio.run_coroutine_threadsafe(
-                        self.callbackMensaje(tipoMensaje, payload),
+                        self.callbackWebsocket(tipoMensaje, payload),
                         self.loop
                     )
 
