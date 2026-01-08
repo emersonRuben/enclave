@@ -14,7 +14,7 @@
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 
 <body>
@@ -26,7 +26,7 @@
                 <span>ENCLAVE</span>
             </div>
             <nav class="nav-menu">
-                <a href="#" class="nav-link active">
+                <a href="#" class="nav-link active" id="nav-dashboard" onclick="switchView('dashboard')">
                     <i class="fa-solid fa-grid-2"></i>
                     <span>Dashboard</span>
                 </a>
@@ -34,9 +34,13 @@
                     <i class="fa-solid fa-microchip"></i>
                     <span>Dispositivos</span>
                 </a>
-                <a href="#" class="nav-link">
+                <a href="#" class="nav-link" id="nav-config">
                     <i class="fa-solid fa-gear"></i>
                     <span>Configuración</span>
+                </a>
+                <a href="#" class="nav-link" id="nav-registration" onclick="switchView('registration')">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Registro</span>
                 </a>
             </nav>
             <div class="sidebar-footer">
@@ -70,148 +74,224 @@
             </header>
 
             <!-- Dashboard Grid -->
-            <div class="grid-layout">
-                <!-- Main Control Widget -->
-                <div class="widget control-widget">
-                    <div class="widget-header">
-                        <h2><i class="fa-solid fa-power-off"></i> Control de Acceso</h2>
-                    </div>
-                    <div class="widget-body">
-                        <div class="status-indicator" id="lock-display">
-                            <div class="icon-ring">
-                                <i class="fa-solid fa-lock" id="lock-icon"></i>
+            <div id="view-dashboard" class="view-section active">
+                <div class="grid-layout">
+                    <!-- Main Control Widget -->
+                    <div class="widget control-widget">
+                        <div class="widget-header">
+                            <h2><i class="fa-solid fa-power-off"></i> Control de Acceso</h2>
+                        </div>
+                        <div class="widget-body">
+                            <div class="status-indicator" id="lock-display">
+                                <div class="icon-ring">
+                                    <i class="fa-solid fa-lock" id="lock-icon"></i>
+                                </div>
+                                <div class="status-text">
+                                    <h3 id="status-text">CERRADO</h3>
+                                    <p class="last-sync">Sincronizado hace instantes</p>
+                                </div>
                             </div>
-                            <div class="status-text">
-                                <h3 id="status-text">CERRADO</h3>
-                                <p class="last-sync">Sincronizado hace instantes</p>
+                            <div class="action-buttons">
+                                <button class="btn-action open" onclick="abrirModalPin()">
+                                    <span class="btn-icon"><i class="fa-solid fa-lock-open"></i></span>
+                                    <span class="btn-label">ABRIR</span>
+                                </button>
+                                <button class="btn-action close" onclick="enviarComando('CERRAR')">
+                                    <span class="btn-icon"><i class="fa-solid fa-lock"></i></span>
+                                    <span class="btn-label">CERRAR</span>
+                                </button>
                             </div>
                         </div>
-                        <div class="action-buttons">
-                            <button class="btn-action open" onclick="abrirModalPin()">
-                                <span class="btn-icon"><i class="fa-solid fa-lock-open"></i></span>
-                                <span class="btn-label">ABRIR</span>
-                            </button>
-                            <button class="btn-action close" onclick="enviarComando('CERRAR')">
-                                <span class="btn-icon"><i class="fa-solid fa-lock"></i></span>
-                                <span class="btn-label">CERRAR</span>
-                            </button>
-                        </div>
                     </div>
-                </div>
 
-                <!-- Device Info (Mock) -->
-                <div class="widget info-widget">
-                    <div class="widget-header">
-                        <h2><i class="fa-solid fa-circle-info"></i> Métricas del Dispositivo</h2>
+                    <!-- Device Info (Mock) -->
+                    <div class="widget info-widget">
+                        <div class="widget-header">
+                            <h2><i class="fa-solid fa-circle-info"></i> Métricas del Dispositivo</h2>
+                        </div>
+                        <div class="widget-body stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Batería</span>
+                                <div class="stat-value">
+                                    <i class="fa-solid fa-battery-three-quarters text-success"></i>
+                                    <span>85%</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Señal WiFi</span>
+                                <div class="stat-value">
+                                    <i class="fa-solid fa-wifi text-primary"></i>
+                                    <span>-45 dBm</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Temperatura</span>
+                                <div class="stat-value">
+                                    <i class="fa-solid fa-temperature-half text-warning"></i>
+                                    <span>24°C</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Uptime</span>
+                                <div class="stat-value">
+                                    <i class="fa-solid fa-clock"></i>
+                                    <span>12d 4h</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="widget-body stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-label">Batería</span>
-                            <div class="stat-value">
-                                <i class="fa-solid fa-battery-three-quarters text-success"></i>
-                                <span>85%</span>
-                            </div>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Señal WiFi</span>
-                            <div class="stat-value">
-                                <i class="fa-solid fa-wifi text-primary"></i>
-                                <span>-45 dBm</span>
-                            </div>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Temperatura</span>
-                            <div class="stat-value">
-                                <i class="fa-solid fa-temperature-half text-warning"></i>
-                                <span>24°C</span>
-                            </div>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Uptime</span>
-                            <div class="stat-value">
-                                <i class="fa-solid fa-clock"></i>
-                                <span>12d 4h</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Live Camera Widget -->
-                <div class="widget camera-widget">
-                    <div class="widget-header">
-                        <h2><i class="fa-solid fa-video"></i> Cámara en Vivo</h2>
-                    </div>
-                    <div class="widget-body">
-                        <div class="camera-feed">
-                            <div class="live-indicator">
-                                <span class="dot"></span> REC
+                    <!-- Live Camera Widget -->
+                    <div class="widget camera-widget">
+                        <div class="widget-header">
+                            <h2><i class="fa-solid fa-video"></i> Monitor en Vivo</h2>
+                            <div class="live-indicator" id="scan-indicator" style="display: flex;">
+                                <span class="dot pulse"></span> EN VIVO
                             </div>
-                            <!-- MJPEG Stream -->
-                            <img src="{{ camera_stream_url }}" class="camera-stream" alt="Cámara en Vivo"
-                                onerror="this.style.display='none'; document.querySelector('.camera-placeholder').style.display='flex'">
+                        </div>
+                        <div class="widget-body">
+                            <div class="camera-container">
+                                <!-- Stream Image (Always Visible) -->
+                                <img id="camera-feed" src="{{ camera_stream_url }}" class="camera-stream"
+                                    style="display: block;">
 
-                            <!-- Placeholder (Fallback) -->
-                            <div class="camera-placeholder" style="display:none;">
-                                <i class="fa-solid fa-eye-slash"></i>
-                                <span>Sin señal de video</span>
+                                <!-- Botón de Escaneo Manual -->
+                                <div class="scan-overlay">
+                                    <button id="btn-scan" class="btn-scan">
+                                        <i class="fa-solid fa-expand"></i> ESCANEAR ROSTRO
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Modal de Resultado Facial -->
+                            <div id="facial-modal" class="modal-overlay">
+                                <div class="modal-content scan-result">
+                                    <div class="scan-loader" id="scan-loader">
+                                        <div class="scanner-laser"></div>
+                                        <p>ANALIZANDO BIOMETRÍA...</p>
+                                    </div>
+
+                                    <div id="scan-success" class="scan-feedback hidden">
+                                        <i class="fa-solid fa-user-check icon-large success"></i>
+                                        <h3>IDENTIDAD CONFIRMADA</h3>
+                                        <p>Acceso Autorizado</p>
+                                    </div>
+
+                                    <div id="scan-error" class="scan-feedback hidden">
+                                        <i class="fa-solid fa-user-xmark icon-large danger"></i>
+                                        <h3>ACCESO DENEGADO</h3>
+                                        <p>Rostro No Reconocido</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Security Alerts -->
-                <div class="widget alerts-widget">
-                    <div class="widget-header">
-                        <h2><i class="fa-solid fa-triangle-exclamation"></i> Alertas de Seguridad</h2>
-                    </div>
-                    <div class="widget-body">
-                        <ul id="alerts-list" class="alert-list">
-                            <!-- Alerts injected here -->
-                        </ul>
-                    </div>
-                </div>
+                    <!-- Security Alerts -->
+                    <div class="widget alerts-widget">
+                        <div class="widget-header">
+                            <h2><i class="fa-solid fa-triangle-exclamation"></i> Alertas de Seguridad</h2>
+                        </div>
+                        <div class="widget-body">
+                            <!-- New Status Display -->
+                            <div id="facial-status-display" class="facial-status" data-state="NO_DETECTADO">
+                                <div class="icon-box">
+                                    <i class="fa-solid fa-user-slash" id="facial-icon"></i>
+                                </div>
+                                <div class="status-content">
+                                    <h3 id="facial-title">ROSTRO NO DETECTADO</h3>
+                                    <p id="facial-desc">Sistema en espera...</p>
+                                </div>
+                            </div>
 
-                <!-- Live Logs -->
-                <div class="widget logs-widget">
-                    <div class="widget-header">
-                        <h2><i class="fa-solid fa-terminal"></i> Registro de Eventos</h2>
-                        <span class="live-badge">EN VIVO</span>
-                    </div>
-                    <div class="widget-body">
-                        <div class="console-view">
-                            <ul id="logs-list" class="log-list">
-                                <!-- Logs injected here -->
+                            <ul id="alerts-list" class="alert-list">
+                                <!-- Alerts injected here -->
                             </ul>
                         </div>
                     </div>
-                </div>
-            </div>
-        </main>
-        <!-- PIN Confirmation Modal -->
-        <div id="pin-modal" class="modal-overlay">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fa-solid fa-user-shield"></i> Seguridad Requerida</h3>
-                </div>
-                <div class="modal-body">
-                    <p>Esta es una acción crítica. Por favor, ingrese su PIN de seguridad para confirmar.</p>
-                    <div class="pin-input-container">
-                        <input type="password" id="security-pin" placeholder="Ingrese PIN (1234)" maxlength="4"
-                            autocomplete="off">
+
+                    <!-- Live Logs -->
+                    <div class="widget logs-widget">
+                        <div class="widget-header">
+                            <h2><i class="fa-solid fa-terminal"></i> Registro de Eventos</h2>
+                            <span class="live-badge">EN VIVO</span>
+                        </div>
+                        <div class="widget-body">
+                            <div class="console-view">
+                                <ul id="logs-list" class="log-list">
+                                    <!-- Logs injected here -->
+                                </ul>
+                            </div>
+                        </div>
                     </div>
-                    <div id="pin-error" class="error-message"></div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn-modal cancel" onclick="cerrarModalPin()">Cancelar</button>
-                    <button class="btn-modal confirm" onclick="verificarPin()">Confirmar</button>
+            </div> <!-- End grid-layout -->
+    </div> <!-- End view-dashboard -->
+
+    <!-- Registration View -->
+    <div id="view-registration" class="view-section" style="display: none;">
+        <div class="widget camera-widget" style="max-width: 800px; margin: 0 auto; margin-top: 20px;">
+            <div class="widget-header">
+                <h2><i class="fa-solid fa-camera"></i> Registro de Nuevos Usuarios</h2>
+            </div>
+            <div class="widget-body" style="padding: 20px; text-align: center;">
+
+                <div class="camera-container"
+                    style="position: relative; border-radius: 10px; overflow: hidden; background: #000;">
+                    <video id="webcam-preview" autoplay playsinline
+                        style="width: 100%; height: auto; display: block;"></video>
+                    <canvas id="webcam-canvas" style="display: none;"></canvas>
                 </div>
+
+                <div class="controls"
+                    style="margin-top: 20px; display: flex; flex-direction: column; gap: 15px; align-items: center;">
+                    <div class="input-group" style="width: 100%; max-width: 400px;">
+                        <label style="display: block; text-align: left; margin-bottom: 5px; color: #888;">Nombre del
+                            Usuario</label>
+                        <input type="text" id="reg-name" placeholder="Ej. Juan Perez"
+                            style="width: 100%; padding: 12px; border-radius: 5px; background: rgba(255,255,255,0.05); border: 1px solid #444; color: white; outline: none;">
+                    </div>
+
+                    <div class="btn-row" style="display: flex; gap: 10px;">
+                        <button onclick="iniciarWebcam()" class="btn-action" style="background: var(--primary);">
+                            <i class="fa-solid fa-power-off"></i> Activar Cámara
+                        </button>
+                        <button onclick="capturarYRegistrar()" class="btn-action" style="background: var(--secondary);">
+                            <i class="fa-solid fa-camera"></i> Capturar y Guardar
+                        </button>
+                    </div>
+                    <p id="reg-status" style="margin-top: 10px; font-size: 0.9em; min-height: 20px;"></p>
+                </div>
+
             </div>
         </div>
+    </div>
+    </main>
+    <!-- PIN Confirmation Modal -->
+    <div id="pin-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-shield"></i> Seguridad Requerida</h3>
+            </div>
+            <div class="modal-body">
+                <p>Esta es una acción crítica. Por favor, ingrese su PIN de seguridad para confirmar.</p>
+                <div class="pin-input-container">
+                    <input type="password" id="security-pin" placeholder="Ingrese PIN (1234)" maxlength="4"
+                        autocomplete="off">
+                </div>
+                <div id="pin-error" class="error-message"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal cancel" onclick="cerrarModalPin()">Cancelar</button>
+                <button class="btn-modal confirm" onclick="verificarPin()">Confirmar</button>
+            </div>
+        </div>
+    </div>
 
     </div>
 
     <!-- Script remains mostly the same logic, just attached to new DOM -->
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=3"></script>
     <script>
         // Inline patch to ensure variable names in app.js match new DOM IDs if needed, 
         // OR we just ensure new HTML uses same IDs.

@@ -4,6 +4,7 @@ import asyncio
 import ssl
 import certifi
 import json
+import random
 from typing import Callable, Optional
 
 import os
@@ -29,7 +30,9 @@ class ClienteMqtt:
     def __init__(self):
         # En paho-mqtt 2.0+ callback_api_version por defecto es CallbackAPIVersion.VERSION2
         # Usamos protocolo MQTTv5 o v311. Para simpleza usamos v5 o default.
-        self.cliente = mqtt.Client(client_id="FastAPI_Server", protocol=mqtt.MQTTv5)
+        # Generar ID aleatorio para evitar conflictos de "Session taken over" al reiniciar
+        client_id = f"FastAPI_Server_{random.randint(1000, 9999)}"
+        self.cliente = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv5)
         
         # Configurar TLS con certificados de Certifi
         self.cliente.tls_set(ca_certs=certifi.where())
@@ -41,47 +44,51 @@ class ClienteMqtt:
         self.cliente.on_message = self.alRecibirMensaje
         self.cliente.on_disconnect = self.alDesconectar
         
-        # Callback para enviar datos a FastAPI
-        self.callbackWebsocket: Optional[Callable[[str, dict], None]] = None
+        # Callbacks para enviar datos a FastAPI (Soporte Multi-Cliente)
+        self.clientes_conectados = set()
         
         # Modo Simulación (Desactivado si hay dispositivo real)
         self.modoSimulacion = False 
-        self.estadoActual = "CERRADO"
         
-        # Persistencia de Logs
-        self.archivoLogs = "logs.json"
-        self.historialLogs = self._cargarLogs()
+        # Persistencia de Estado
+        self.archivoEstado = "state.txt"
+        # self.estadoActual = self._cargarEstado() # Desactivado: Siempre iniciar CERRADO por seguridad
+        self.estadoActual = "CERRADO"
+        self._guardarEstado() # Actualizar archivo para reflejar el inicio cerrado
+        
+        self.historialLogs = []
         self.loop = None
 
-    def _cargarLogs(self):
+    def _cargarEstado(self):
         try:
-            if os.path.exists(self.archivoLogs):
-                with open(self.archivoLogs, 'r') as f:
-                    return json.load(f)
+            if os.path.exists(self.archivoEstado):
+                with open(self.archivoEstado, 'r') as f:
+                    estado = f.read().strip()
+                    # print(f"DEBUG: Estado recuperado: {estado}")
+                    return estado
         except Exception as e:
-            print(f"Error cargando logs: {e}")
-        return []
+            print(f"Error cargando estado: {e}")
+        return "CERRADO"
 
-    def _guardarLogs(self):
+    def _guardarEstado(self):
         try:
-            with open(self.archivoLogs, 'w') as f:
-                json.dump(self.historialLogs, f)
+            with open(self.archivoEstado, 'w') as f:
+                f.write(self.estadoActual)
         except Exception as e:
-            print(f"Error guardando logs: {e}")
+            print(f"Error guardando estado: {e}")
 
-    def establecerCallback(self, funcionCallback):
-        self.callbackWebsocket = funcionCallback
+    def registrar_cliente(self, callback):
+        self.clientes_conectados.add(callback)
+
+    def deregistrar_cliente(self, callback):
+        self.clientes_conectados.discard(callback)
 
     def _agregarHistorial(self, tipo, mensaje):
-        """Guarda los últimos 50 eventos en memoria y archivo."""
+        """Guarda los últimos 50 eventos en memoria RAM."""
         evento = {"tipo": tipo, "datos": mensaje}
         self.historialLogs.insert(0, evento)
-        # Limitar a 50
         if len(self.historialLogs) > 50:
             self.historialLogs.pop()
-        
-        # Guardar en disco
-        self._guardarLogs()
 
     def alConectar(self, cliente, userdata, flags, rc, properties=None):
         if rc == 0:
@@ -99,13 +106,11 @@ class ClienteMqtt:
         try:
             payload = msg.payload.decode()
             topico = msg.topic
-            print(f"MENSAJE RECIBIDO [{topico}]: {payload}") # Requisito: Mostrar por consola
+            print(f"MENSAJE RECIBIDO [{topico}]: {payload}") 
 
             # Manejar Lógica de Simulación
             if self.modoSimulacion and topico == TOPICO_COMANDO:
                 self._manejarComandoSimulado(payload)
-                # Continuamos para notificar vía callback si fuera necesario, 
-                # aunque el simulador ya publica los cambios de estado.
 
             # Identificar tipo de mensaje
             tipoMensaje = "desconocido"
@@ -113,30 +118,49 @@ class ClienteMqtt:
                 tipoMensaje = "estado"
                 # Normalización: Manejar ABIERTA/ABIERTO
                 estado_normalizado = payload.upper()
-                if "ABIER" in estado_normalizado:
-                     self.estadoActual = "ABIERTO"
-                else:
-                     self.estadoActual = "CERRADO"
                 
-                # Usar el estado normalizado para el payload que va al WebSocket
+                # Detectar cambio de estado
+                nuevo_estado = "CERRADO"
+                if "ABIER" in estado_normalizado:
+                     nuevo_estado = "ABIERTO"
+                
+                # Regla de Log: Si cambia el estado O si es un mensaje en vivo (retain=0)
+                # msg.retain suele ser 0 en mensajes nuevos y 1 en históricos
+                deberia_loguear = (nuevo_estado != self.estadoActual) or (msg.retain == 0)
+
+                self.estadoActual = nuevo_estado
+                self._guardarEstado() # Guardar siempre para asegurar consistencia
+                
+                if deberia_loguear:
+                     mensaje_log = f"Estado cambiado a: {self.estadoActual}"
+                     self._agregarHistorial("log", mensaje_log)
+                     
+                     # Enviar 'log' a todos los clientes
+                     self._notificar_clientes("log", mensaje_log)
+                
                 payload = self.estadoActual 
+
             elif topico == TOPICO_ALERTA:
                 tipoMensaje = "alerta"
                 self._agregarHistorial("alerta", payload)
             elif topico == TOPICO_LOG:
                 tipoMensaje = "log"
                 self._agregarHistorial("log", payload)
+            elif "facial_status" in topico:
+                tipoMensaje = "facial_status"
+                # No guardamos historial para esto, es transitorio
             
-            # Pasar datos al callback (WebSockets)
-            if self.callbackWebsocket and tipoMensaje != "desconocido":
-                if self.loop:
-                    asyncio.run_coroutine_threadsafe(
-                        self.callbackWebsocket(tipoMensaje, payload),
-                        self.loop
-                    )
+            # Enviar el mensaje original (tipo 'estado', 'alerta', etc.) a todos
+            if tipoMensaje != "desconocido":
+                 self._notificar_clientes(tipoMensaje, payload)
 
         except Exception as e:
             logging.error(f"Error procesando mensaje: {e}")
+
+    def _notificar_clientes(self, tipo, datos):
+        if self.loop and self.clientes_conectados:
+            for callback in list(self.clientes_conectados):
+                asyncio.run_coroutine_threadsafe(callback(tipo, datos), self.loop)
 
     def _manejarComandoSimulado(self, comando):
         """Simula el comportamiento de la caja física."""
